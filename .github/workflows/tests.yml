@@ -24,7 +24,7 @@ jobs:
       # Runs even when a test failed, so the results file is always saved.
       - name: Save results for Flaw Patrol
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-${{ github.run_number }}
           path: test-results/junit.xml
