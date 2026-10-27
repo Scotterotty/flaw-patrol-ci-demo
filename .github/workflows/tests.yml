@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Writes test-results/junit.xml. One test fails on purpose, so this step goes red.
+      - name: Run tests
+        run: npm run test:ci
+
+      # Runs even when a test failed, so the results file is always saved.
+      - name: Save results for Flaw Patrol
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results/junit.xml
+          if-no-files-found: error
+          retention-days: 30

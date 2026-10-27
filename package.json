@@ -1,0 +1,26 @@
+{
+  "name": "flaw-patrol-ci-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A tiny sample test suite whose JUnit XML results can be uploaded into Flaw Patrol.",
+  "scripts": {
+    "test": "jest",
+    "test:ci": "jest --ci --reporters=default --reporters=jest-junit"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  },
+  "jest-junit": {
+    "outputDirectory": "test-results",
+    "outputName": "junit.xml",
+    "suiteName": "Sample tests",
+    "classNameTemplate": "{classname}",
+    "titleTemplate": "{title}",
+    "ancestorSeparator": " › ",
+    "addFileAttribute": "true"
+  },
+  "devDependencies": {
+    "jest": "30.2.0",
+    "jest-junit": "16.0.0"
+  }
+}
