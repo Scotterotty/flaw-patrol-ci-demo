@@ -8,7 +8,10 @@
     "test:ci": "jest --ci --reporters=default --reporters=jest-junit"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/ci/jest-setup.js"
+    ]
   },
   "jest-junit": {
     "outputDirectory": "test-results",

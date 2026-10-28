@@ -4,9 +4,9 @@ A tiny sample test suite that shows how automated test results get from GitHub A
 
 - `src/cart.js` is a small shopping cart, just something to test.
 - `tests/` has 10 tests. 9 pass, and 1 (**totals the subtotal**) fails on purpose so you can see what a failed test looks like in Flaw Patrol.
-- `.github/workflows/tests.yml` runs the tests on every push and saves the results as a JUnit XML file (`junit.xml`).
+- `.github/workflows/tests.yml` runs the tests on every push, and on its own about every hour, and saves the results as a JUnit XML file (`junit.xml`).
 
-Because one test fails on purpose, every run shows a red ❌ in GitHub. That's expected.
+On a push, one test fails on purpose, so the run shows a red ❌ in GitHub. That's expected. The hourly runs are random instead (see below).
 
 ## Get the results file from GitHub
 
@@ -52,6 +52,27 @@ Flaw Patrol matches each test by its Automation ID (`<describe name>.<test name>
 On GitHub, open **Actions → Tests → Run workflow** and pick one option in **Make part of the build fail**:
 
 - **nothing fails (normal run)**: the same as a push (1 test still fails on purpose).
+- **random (like the hourly runs)**: the outcome is picked at random, the same way as the hourly runs.
 - **everything passes**: all 10 tests pass and the run goes green.
 - **packaging fails after the tests**: the build works, the tests run and save their results file, then the Package step fails. Flaw Patrol still gets all 10 results.
 - **build fails before the tests**: the Build step fails, so the tests never run and there's no results file. Flaw Patrol shows the run as failed with no results to pull.
+
+## Hourly random runs
+
+So there's always a fresh run to pull into Flaw Patrol, GitHub runs the workflow on its own about every hour (at 17 minutes past). Each of these runs goes a random way, like a real team's CI:
+
+- **Most runs are green**: all 10 tests pass.
+- **A bad change** lands now and then: 1 or 2 tests start failing and keep failing, with the same error, for a few runs in a row until it's "fixed".
+- **A bad merge** (rare): several tests fail in just that run.
+- **Flaky tests**: *takes 10 percent off* and *removing one item keeps the others* sometimes time out for no reason, then pass on the next run.
+- **Broken builds** (rare): Install fails (npm registry times out), Build fails (no tests run, so there's no results file), or Package fails after the tests (results are still saved).
+- Test times vary from run to run.
+
+The odds live in `ci/pick-outcome.js` and the test failures in `ci/jest-setup.js`. Neither changes anything on a push or a manual run (except **random**).
+
+Good to know:
+
+- It's free because this repository is public.
+- GitHub sometimes starts scheduled runs late (by several minutes, now and then longer) or skips one when it's busy.
+- GitHub turns the hourly runs off after 60 days with no commits to the repository. To turn them back on, open **Actions → Tests** and click **Enable workflow**, or push any commit.
+- To stop them, open **Actions → Tests**, click **⋯** (top right), then **Disable workflow**.

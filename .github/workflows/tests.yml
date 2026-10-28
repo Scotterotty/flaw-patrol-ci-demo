@@ -2,6 +2,10 @@ name: Tests
 
 on:
   push:
+  # About every hour (at 17 past, when GitHub is less busy), with a random outcome.
+  # GitHub can start scheduled runs late, and turns them off after 60 days with no commits.
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       simulate:
@@ -10,6 +14,7 @@ on:
         default: nothing fails (normal run)
         options:
           - nothing fails (normal run)
+          - random (like the hourly runs)
           - everything passes
           - packaging fails after the tests
           - build fails before the tests
@@ -18,7 +23,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      SIMULATE: ${{ inputs.simulate || 'nothing fails (normal run)' }}
+      SIMULATE: ${{ github.event_name == 'schedule' && 'random' || inputs.simulate || 'nothing fails (normal run)' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -27,36 +32,47 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Also picks how this run goes (see ci/pick-outcome.js). On random runs it now and
+      # then fails the way a flaky npm registry would.
       - name: Install
-        run: npm ci
+        run: |
+          node ci/pick-outcome.js > outcome.env
+          cat outcome.env >> "$GITHUB_ENV"
+          if grep -q SIM_INSTALL_FAILS outcome.env; then
+            echo "npm error code ETIMEDOUT"
+            echo "npm error network request to https://registry.npmjs.org/jest-junit failed, reason: read ETIMEDOUT"
+            echo "::error::npm ci failed: request to registry.npmjs.org timed out (ETIMEDOUT)"
+            exit 1
+          fi
+          npm ci
 
-      # A stand-in for compiling the app. Fails only when picked in Run workflow,
-      # and then the tests never run, so there's no results file.
+      # A stand-in for compiling the app. Fails when picked in Run workflow (or now and
+      # then on random runs), and then the tests never run, so there's no results file.
       - name: Build
         id: build
         run: |
-          if [ "$SIMULATE" = "build fails before the tests" ]; then
-            echo "::error file=src/cart.js,line=1::Simulated compile error: unexpected token"
+          if [ -n "$SIM_BUILD_FAILS" ]; then
+            echo "::error file=src/cart.js,line=27,col=3::SyntaxError: Unexpected token '}'"
             exit 1
           fi
           node --check src/cart.js
           echo "Build OK"
 
-      # Writes test-results/junit.xml. One test fails on purpose (unless "everything passes"
-      # is picked), so this step goes red.
+      # Writes test-results/junit.xml. On push and "nothing fails", one test fails on purpose.
+      # On random runs, ci/jest-setup.js makes tests fail like real ones: regressions that
+      # stick around for a few hours, the odd bad merge, and 2 flaky tests.
       - name: Run tests
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: npm run test:ci
-        env:
-          ALL_PASS: ${{ env.SIMULATE == 'everything passes' && '1' || '' }}
 
       # A stand-in for packaging the app. Runs even when a test failed, like a real
-      # pipeline that packages every build. Fails only when picked in Run workflow.
+      # pipeline that packages every build. Fails when picked in Run workflow (or now and
+      # then on random runs).
       - name: Package
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          if [ "$SIMULATE" = "packaging fails after the tests" ]; then
-            echo "::error::Simulated packaging error: couldn't write flaw-patrol-ci-demo.zip (disk full)"
+          if [ -n "$SIM_PACKAGE_FAILS" ]; then
+            echo "::error::Packaging failed: couldn't write dist/flaw-patrol-ci-demo.zip (No space left on device)"
             exit 1
           fi
           mkdir -p dist && zip -qr dist/flaw-patrol-ci-demo.zip src package.json
