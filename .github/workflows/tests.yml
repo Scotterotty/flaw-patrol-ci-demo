@@ -10,6 +10,7 @@ on:
         default: nothing fails (normal run)
         options:
           - nothing fails (normal run)
+          - everything passes
           - packaging fails after the tests
           - build fails before the tests
 
@@ -40,10 +41,13 @@ jobs:
           node --check src/cart.js
           echo "Build OK"
 
-      # Writes test-results/junit.xml. One test fails on purpose, so this step goes red.
+      # Writes test-results/junit.xml. One test fails on purpose (unless "everything passes"
+      # is picked), so this step goes red.
       - name: Run tests
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: npm run test:ci
+        env:
+          ALL_PASS: ${{ env.SIMULATE == 'everything passes' && '1' || '' }}
 
       # A stand-in for packaging the app. Runs even when a test failed, like a real
       # pipeline that packages every build. Fails only when picked in Run workflow.

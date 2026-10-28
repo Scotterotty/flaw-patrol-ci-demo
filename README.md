@@ -51,6 +51,7 @@ Flaw Patrol matches each test by its Automation ID (`<describe name>.<test name>
 
 On GitHub, open **Actions → Tests → Run workflow** and pick one option in **Make part of the build fail**:
 
-- **nothing fails (normal run)**: the same as a push.
-- **packaging fails after the tests**: the tests run and save their results file, then the Package step fails. Flaw Patrol still gets all 10 results.
+- **nothing fails (normal run)**: the same as a push (1 test still fails on purpose).
+- **everything passes**: all 10 tests pass and the run goes green.
+- **packaging fails after the tests**: the build works, the tests run and save their results file, then the Package step fails. Flaw Patrol still gets all 10 results.
 - **build fails before the tests**: the Build step fails, so the tests never run and there's no results file. Flaw Patrol shows the run as failed with no results to pull.
