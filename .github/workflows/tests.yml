@@ -27,7 +27,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: Install
+        run: npm ci
 
       # A stand-in for compiling the app. Fails only when picked in Run workflow,
       # and then the tests never run, so there's no results file.
