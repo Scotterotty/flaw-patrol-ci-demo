@@ -3,7 +3,7 @@
 A tiny sample test suite that shows how automated test results get from GitHub Actions into Flaw Patrol.
 
 - `src/cart.js` is a small shopping cart, just something to test.
-- `tests/` has 9 tests. 8 pass, and 1 (**takes 25 percent off (fails on purpose)**) fails on purpose so you can see what a failed test looks like in Flaw Patrol.
+- `tests/` has 10 tests. 9 pass, and 1 (**totals the subtotal**) fails on purpose so you can see what a failed test looks like in Flaw Patrol.
 - `.github/workflows/tests.yml` runs the tests on every push and saves the results as a JUnit XML file (`junit.xml`).
 
 Because one test fails on purpose, every run shows a red ❌ in GitHub. That's expected.
@@ -28,7 +28,7 @@ You need to be a Lead or Admin on the test cycle.
 4. Under **Which test cycle did these run on?**, pick the test cycle.
 5. Check the **Build** box. Flaw Patrol fills it in with the GitHub run number from the file. Change it if you like, then click **Next: check results**.
 6. Look over the list: 8 Passed and 1 Failed. The first time, all 9 show **New case**. Leave **Make Automated cases for tests with no case** ticked so Flaw Patrol makes a case for each one in the Case library's Automation folder.
-7. Click **Save 9 results**. The new run opens, showing the failed test first.
+7. Click **Save 10 results**. The new run opens, showing the failed test first.
 
 Upload a later run's file and the results go onto the same cases, so you can follow each test's history.
 
