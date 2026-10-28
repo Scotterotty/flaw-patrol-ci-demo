@@ -3,7 +3,7 @@
 
 if (process.env.SIM_RANDOM) {
   const FLAKY = ["Discounts takes 10 percent off", "Cart removing one item keeps the others"];
-  const FLAKY_CHANCE = 0.12;
+  const FLAKY_CHANCE = 0.08;
 
   function hash(text) {
     let h = 2166136261;
