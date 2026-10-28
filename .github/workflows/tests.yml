@@ -3,10 +3,21 @@ name: Tests
 on:
   push:
   workflow_dispatch:
+    inputs:
+      simulate:
+        description: Make part of the build fail, to see what Flaw Patrol shows
+        type: choice
+        default: nothing fails (normal run)
+        options:
+          - nothing fails (normal run)
+          - packaging fails after the tests
+          - build fails before the tests
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SIMULATE: ${{ inputs.simulate || 'nothing fails (normal run)' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -17,16 +28,41 @@ jobs:
 
       - run: npm ci
 
+      # A stand-in for compiling the app. Fails only when picked in Run workflow,
+      # and then the tests never run, so there's no results file.
+      - name: Build
+        id: build
+        run: |
+          if [ "$SIMULATE" = "build fails before the tests" ]; then
+            echo "::error file=src/cart.js,line=1::Simulated compile error: unexpected token"
+            exit 1
+          fi
+          node --check src/cart.js
+          echo "Build OK"
+
       # Writes test-results/junit.xml. One test fails on purpose, so this step goes red.
       - name: Run tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: npm run test:ci
 
-      # Runs even when a test failed, so the results file is always saved.
+      # A stand-in for packaging the app. Runs even when a test failed, like a real
+      # pipeline that packages every build. Fails only when picked in Run workflow.
+      - name: Package
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          if [ "$SIMULATE" = "packaging fails after the tests" ]; then
+            echo "::error::Simulated packaging error: couldn't write flaw-patrol-ci-demo.zip (disk full)"
+            exit 1
+          fi
+          mkdir -p dist && zip -qr dist/flaw-patrol-ci-demo.zip src package.json
+          echo "Packaged dist/flaw-patrol-ci-demo.zip"
+
+      # Runs even when a step failed, so the results file is saved whenever the tests ran.
       - name: Save results for Flaw Patrol
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: test-results-${{ github.run_number }}
           path: test-results/junit.xml
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30

@@ -46,3 +46,11 @@ npm test
 ## Tying a test to an existing case
 
 Flaw Patrol matches each test by its Automation ID (`<describe name>.<test name>`, such as `Cart.adds an item`). If a test's name has a case key in it, such as `ABC-12 adds an item`, Flaw Patrol links it to case ABC-12 the first time it's uploaded.
+
+## Simulate a broken build
+
+On GitHub, open **Actions → Tests → Run workflow** and pick one option in **Make part of the build fail**:
+
+- **nothing fails (normal run)**: the same as a push.
+- **packaging fails after the tests**: the tests run and save their results file, then the Package step fails. Flaw Patrol still gets all 10 results.
+- **build fails before the tests**: the Build step fails, so the tests never run and there's no results file. Flaw Patrol shows the run as failed with no results to pull.
