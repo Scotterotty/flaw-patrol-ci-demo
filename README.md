@@ -62,8 +62,8 @@ On GitHub, open **Actions → Tests → Run workflow** and pick one option in **
 
 So there's always a fresh run to pull into Flaw Patrol, GitHub runs the workflow on its own about every hour (at 17 minutes past). Each of these runs goes a random way, like a real team's CI:
 
-- **Most runs are green**: all 10 tests pass.
-- **A bad change** lands now and then: 1 or 2 tests start failing and keep failing, with the same error, for a few runs in a row until it's "fixed".
+- **Most runs are green** (about 2 in 3): all 10 tests pass.
+- **A bad change** lands now and then (about once a day): 1 or 2 tests start failing and keep failing, with the same error, for 2 to 5 runs in a row until it's "fixed".
 - **A bad merge** (rare): several tests fail in just that run.
 - **Flaky tests**: *takes 10 percent off* and *removing one item keeps the others* sometimes time out for no reason, then pass on the next run.
 - **Broken builds** (rare): Install fails (npm registry times out), Build fails (no tests run, so there's no results file), or Package fails after the tests (results are still saved).
@@ -82,9 +82,9 @@ Good to know:
 
 `e2e/shop.spec.js` has 6 Playwright tests of a tiny shop page (`web/shop.html`, which uses the same cart code). The **Browser tests** workflow runs them on every push and about every hour.
 
-- 5 pass, and 1 (**applies a discount code**) fails on purpose: the shop only takes codes in capitals.
+- On a push, 5 pass and 1 (**applies a discount code**) fails on purpose: the shop only takes codes in capitals.
 - For each failed test, Playwright saves a **screenshot**, a **video** and a **trace** (a step-by-step replay you can click through).
-- On the hourly runs, **updates the total after each item** is now and then flaky: its first try fails and the retry passes.
+- The hourly runs are random, and most are green (about 4 in 5). Now and then (about once a day) a "bad change" brings the discount-code bug back for 2 to 5 runs in a row. **updates the total after each item** is flaky: now and then its first try fails and the retry passes, and once in a while the retry fails too. Rarely, Install fails (npm registry times out).
 - Pick **everything passes** in **Run workflow** to see a green run.
 
 The results are saved as the artifact **playwright-results-N**. Inside are `results.xml` (the JUnit file Flaw Patrol reads today), `results.json`, and a `files` folder with the screenshots, videos and traces. Flaw Patrol shows pass and fail today; showing the screenshots, videos and replays next to each result is coming in a future build.

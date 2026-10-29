@@ -4,8 +4,9 @@ name: Browser tests
 # trace (a step-by-step replay), so there's something to see next to it in Flaw Patrol.
 on:
   push:
-  # About every hour, 30 minutes after the Tests workflow. On these runs one test is
-  # now and then flaky: its first try fails and the retry passes.
+  # About every hour, 30 minutes after the Tests workflow, with a random outcome
+  # (see ci/pick-outcome.js): mostly green, now and then a bad change brings the shop's
+  # discount bug back for a few hours, and one test is flaky.
   schedule:
     - cron: "47 * * * *"
   workflow_dispatch:
@@ -32,19 +33,26 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Also picks how this run goes (see ci/pick-outcome.js). On random runs it now and
+      # then fails the way a flaky npm registry would.
       - name: Install
         run: |
+          node ci/pick-outcome.js browser > outcome.env
+          cat outcome.env >> "$GITHUB_ENV"
+          if grep -q SIM_INSTALL_FAILS outcome.env; then
+            echo "npm error code ETIMEDOUT"
+            echo "npm error network request to https://registry.npmjs.org/@playwright%2ftest failed, reason: read ETIMEDOUT"
+            echo "::error::npm ci failed: request to registry.npmjs.org timed out (ETIMEDOUT)"
+            exit 1
+          fi
           npm ci
           npx playwright install --with-deps chromium
 
       # Writes results/results.xml and results/results.json, plus results/files with a
-      # screenshot, video and trace for each failed try. One test (applies a discount
-      # code) fails on purpose, except on "everything passes".
+      # screenshot, video and trace for each failed try. On push and "nothing fails", one
+      # test (applies a discount code) fails on purpose.
       - name: Run browser tests
-        run: |
-          if [ "$SIMULATE" = "everything passes" ]; then export ALL_PASS=1; fi
-          if [ "$SIMULATE" = "random (like the hourly runs)" ]; then export SIM_RANDOM=1; fi
-          npm run test:browser
+        run: npm run test:browser
 
       - name: Save results for Flaw Patrol
         if: always()

@@ -4,7 +4,8 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const { test, expect } = require("@playwright/test");
 
-// On "everything passes" runs the page's known bug is fixed, so every test passes.
+// On "everything passes" runs, and random runs with no bad change, the page's known bug
+// is fixed.
 const shop = pathToFileURL(path.join(__dirname, "..", "web", "shop.html")).href + (process.env.ALL_PASS ? "?fixed" : "");
 
 async function addToCart(page, name) {
@@ -66,11 +67,12 @@ test.describe("Shop", () => {
     await test.step("Check the warning shows", () => expect(page.getByRole("status")).toHaveText("That code doesn't exist."));
   });
 
-  // Flaky on hourly random runs: now and then the first try fails and the retry passes.
+  // Flaky on hourly random runs: now and then the first try fails and the retry passes,
+// and once in a while (SIM_FLAKY_HARD, from ci/pick-outcome.js) the retry fails too.
   test("updates the total after each item", async ({ page }, testInfo) => {
     await test.step("Add a Tea sampler", () => addToCart(page, "Tea sampler"));
     await test.step("Check the total is $20.00", async () => {
-      const flake = process.env.SIM_RANDOM && testInfo.retry === 0 && Math.random() < 0.15;
+      const flake = process.env.SIM_RANDOM && (process.env.SIM_FLAKY_HARD || (testInfo.retry === 0 && Math.random() < 0.15));
       await expect(page.locator("#total")).toHaveText(flake ? "$20.0" : "$20.00", { timeout: 1000 });
     });
     await test.step("Add a Blue mug", () => addToCart(page, "Blue mug"));

@@ -1,14 +1,14 @@
 // Only does anything on random (hourly) runs. Wraps each test so it can fail the way
-// real tests fail: a regression from a bad change, a bad merge, or a flaky test.
+// real tests fail: a regression from a bad change or a bad merge (both picked by
+// ci/pick-outcome.js), or a flaky test.
 
 if (process.env.SIM_RANDOM) {
   const FLAKY = ["Discounts takes 10 percent off", "Cart removing one item keeps the others"];
   const FLAKY_CHANCE = 0.08;
 
+  const crypto = require("crypto");
   function hash(text) {
-    let h = 2166136261;
-    for (const c of String(text)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
-    return (h >>> 0) / 4294967296;
+    return crypto.createHash("sha256").update(String(text)).digest().readUInt32BE(0) / 4294967296;
   }
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -35,6 +35,9 @@ if (process.env.SIM_RANDOM) {
     }
   }
 
+  // Picked by ci/pick-outcome.js: test name -> seed for how it fails.
+  const failing = JSON.parse(process.env.SIM_FAIL_TESTS || "{}");
+
   const realTest = global.test;
   const wrapped = (name, fn, timeout) =>
     realTest(
@@ -43,10 +46,8 @@ if (process.env.SIM_RANDOM) {
         const full = expect.getState().currentTestName;
         await sleep(20 + Math.random() * Math.random() * 600); // uneven times, like real tests
         await fn();
-        const badChange = process.env.SIM_BAD_CHANGE;
-        if (badChange && hash(full + "regress" + badChange) < 0.15) fail(full, badChange);
-        const badMerge = process.env.SIM_BAD_MERGE;
-        if (badMerge && hash(full + "merge" + badMerge) < 0.45) fail(full, badMerge);
+        const seed = failing[full];
+        if (seed) fail(full, seed);
         if (FLAKY.includes(full) && Math.random() < FLAKY_CHANCE) {
           await sleep(1500);
           const e = new Error("Timed out after 1500 ms waiting for the price service");
