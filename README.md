@@ -5,6 +5,7 @@ A tiny sample test suite that shows how automated test results get from GitHub A
 - `src/cart.js` is a small shopping cart, just something to test.
 - `tests/` has 10 tests. 9 pass, and 1 (**totals the subtotal**) fails on purpose so you can see what a failed test looks like in Flaw Patrol.
 - `.github/workflows/tests.yml` runs the tests on every push, and on its own about every hour, and saves the results as a JUnit XML file (`junit.xml`).
+- `.github/workflows/browser-tests.yml` runs browser tests that save screenshots, videos and replays (see below).
 
 On a push, one test fails on purpose, so the run shows a red ❌ in GitHub. That's expected. The hourly runs are random instead (see below).
 
@@ -76,3 +77,24 @@ Good to know:
 - GitHub sometimes starts scheduled runs late (by several minutes, now and then longer) or skips one when it's busy.
 - GitHub turns the hourly runs off after 60 days with no commits to the repository. To turn them back on, open **Actions → Tests** and click **Enable workflow**, or push any commit.
 - To stop them, open **Actions → Tests**, click **⋯** (top right), then **Disable workflow**.
+
+## Browser tests with screenshots and replays (Playwright)
+
+`e2e/shop.spec.js` has 6 Playwright tests of a tiny shop page (`web/shop.html`, which uses the same cart code). The **Browser tests** workflow runs them on every push and about every hour.
+
+- 5 pass, and 1 (**applies a discount code**) fails on purpose: the shop only takes codes in capitals.
+- For each failed test, Playwright saves a **screenshot**, a **video** and a **trace** (a step-by-step replay you can click through).
+- On the hourly runs, **updates the total after each item** is now and then flaky: its first try fails and the retry passes.
+- Pick **everything passes** in **Run workflow** to see a green run.
+
+The results are saved as the artifact **playwright-results-N**. Inside are `results.xml` (the JUnit file Flaw Patrol reads today), `results.json`, and a `files` folder with the screenshots, videos and traces. Flaw Patrol shows pass and fail today; showing the screenshots, videos and replays next to each result is coming in a future build.
+
+To open a trace yourself: unzip the artifact, then run `npx playwright show-trace files/<test folder>/trace.zip`, or drop the `trace.zip` file on https://trace.playwright.dev.
+
+To run them on your own computer:
+
+```
+npm ci
+npx playwright install chromium
+npm run test:browser
+```

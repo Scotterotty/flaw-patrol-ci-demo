@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo shop</title>
+<style>
+  body { font: 16px system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 22px; }
+  ul { list-style: none; padding: 0; }
+  li, .line { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid #ddd; }
+  button { font: inherit; padding: 4px 12px; }
+  .total { font-weight: 600; }
+  .msg { color: #b4233a; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<!-- A tiny shop page for the browser tests. It uses the same cart code as the Jest tests. -->
+<h1>Demo shop</h1>
+<ul id="products">
+  <li><span>Blue mug, $15.00</span><button data-name="Blue mug" data-price="15">Add to cart</button></li>
+  <li><span>Tea sampler, $20.00</span><button data-name="Tea sampler" data-price="20">Add to cart</button></li>
+</ul>
+
+<h2>Your cart</h2>
+<ul id="cart" aria-label="Cart"></ul>
+<p class="line"><label for="code">Discount code</label><span><input id="code"> <button id="apply">Apply</button></span></p>
+<p class="msg" id="msg" role="status"></p>
+<p class="line total"><span>Total</span><span id="total">$0.00</span></p>
+
+<script>var module = {};</script>
+<script src="../src/cart.js"></script>
+<script>
+  const shopCart = module.exports;
+  const CODES = { SAVE10: 10 };
+  // The demo's known bug: codes only work in capitals. Open the page with ?fixed to fix it.
+  const fixed = new URLSearchParams(location.search).has("fixed");
+  const cart = shopCart.createCart();
+  let percent = 0;
+
+  function money(n) { return "$" + n.toFixed(2); }
+
+  function render() {
+    const list = document.getElementById("cart");
+    list.innerHTML = "";
+    for (const item of cart.items) {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${item.name} ×${item.quantity}</span><span>${money(item.price * item.quantity)} <button>Remove</button></span>`;
+      li.querySelector("button").onclick = () => { shopCart.removeItem(cart, item.name); render(); };
+      list.appendChild(li);
+    }
+    document.getElementById("total").textContent = money(shopCart.applyDiscount(shopCart.subtotal(cart), percent));
+  }
+
+  for (const b of document.querySelectorAll("#products button")) {
+    b.onclick = () => { shopCart.addItem(cart, b.dataset.name, Number(b.dataset.price)); render(); };
+  }
+
+  document.getElementById("apply").onclick = () => {
+    let code = document.getElementById("code").value.trim();
+    if (fixed) code = code.toUpperCase();
+    const msg = document.getElementById("msg");
+    if (CODES[code]) { percent = CODES[code]; msg.textContent = `${code} applied: ${percent}% off.`; }
+    else { percent = 0; msg.textContent = "That code doesn't exist."; }
+    render();
+  };
+
+  render();
+</script>
+</body>
+</html>
