@@ -6,7 +6,8 @@ on:
   push:
   # About every hour, 30 minutes after the Tests workflow, with a random outcome
   # (see ci/pick-outcome.js): mostly green, now and then a bad change brings the shop's
-  # discount bug back for a few hours, and one test is flaky.
+  # discount bug back for a few hours, about 1 run in 7 a bad deploy breaks 1 or 2
+  # tests for just that run, and one test is flaky.
   schedule:
     - cron: "47 * * * *"
   workflow_dispatch:

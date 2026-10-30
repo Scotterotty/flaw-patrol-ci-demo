@@ -9,7 +9,9 @@
 //   - Tests only, about 4% each: Build fails (so no tests run), or Package fails after the tests
 //   - a "bad change" lands now and then (about 1 in 4 six-hour stretches): 1 or 2 tests
 //     start failing and keep failing with the same error for 2 to 5 runs, then it's "fixed"
-//   - Tests only, about 4%: a bad merge breaks 3 to 5 tests for just that run
+//   - Tests: about 4% of runs, a bad merge breaks 3 to 5 tests for just that run
+//   - Browser tests: about 15% of runs, a bad deploy breaks 1 or 2 tests for just that
+//     run, so the browser runs don't sit green for half a day between bad changes
 //   - flaky tests fail now and then for no reason (see ci/jest-setup.js and e2e/shop.spec.js)
 //
 // NOW_MS (a time in milliseconds) can stand in for the clock, to try out the odds.
@@ -38,6 +40,12 @@ function jestTestNames() {
     for (const m of text.matchAll(/\btest\("([^"]+)"/g)) names.push(`${group} ${m[1]}`);
   }
   return names;
+}
+
+// Test names from the Playwright spec, the same way test.info().title writes them.
+function browserTestNames() {
+  const text = fs.readFileSync(path.join(__dirname, "..", "e2e", "shop.spec.js"), "utf8");
+  return [...text.matchAll(/\btest\("([^"]+)"/g)].map((m) => m[1]);
 }
 
 function pickSome(names, count, seed) {
@@ -87,7 +95,14 @@ if (mode.startsWith("random")) {
     // The shop's known bug (codes only work in capitals) comes back during a bad change.
     if (bad) delete out.ALL_PASS;
     // Now and then the flaky test fails on its retry too, so the run goes red.
-    if (Math.random() < 0.04) out.SIM_FLAKY_HARD = "1";
+    if (Math.random() < 0.06) out.SIM_FLAKY_HARD = "1";
+    // A bad deploy breaks 1 or 2 tests for just this run (on both tries, like a real bug).
+    if (Math.random() < 0.15) {
+      const seed = String(Math.random());
+      const failing = {};
+      for (const n of pickSome(browserTestNames(), 1 + Math.floor(Math.random() * 2), seed)) failing[n] = seed;
+      out.SIM_FAIL_TESTS = JSON.stringify(failing);
+    }
   }
 } else if (mode === "everything passes") {
   out.ALL_PASS = "1";

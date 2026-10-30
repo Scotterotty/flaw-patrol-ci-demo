@@ -8,6 +8,10 @@ const { test, expect } = require("@playwright/test");
 // is fixed.
 const shop = pathToFileURL(path.join(__dirname, "..", "web", "shop.html")).href + (process.env.ALL_PASS ? "?fixed" : "");
 
+// Tests a random run's "bad deploy" breaks (picked by ci/pick-outcome.js): title -> seed.
+// The seed picks how it breaks, so the screenshot and error look like a real failure.
+const broken = JSON.parse(process.env.SIM_FAIL_TESTS || "{}");
+
 async function addToCart(page, name) {
   await page.getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "Add to cart" }).click();
 }
@@ -15,6 +19,16 @@ async function addToCart(page, name) {
 test.describe("Shop", () => {
   test.beforeEach(async ({ page }) => {
     await test.step("Open the shop", () => page.goto(shop));
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    const seed = broken[testInfo.title];
+    if (!seed || testInfo.status !== testInfo.expectedStatus) return;
+    if (Number(seed) < 0.5) {
+      await test.step("Check the cart badge", () => expect(page.getByTestId("cart-count")).toBeVisible({ timeout: 1000 }));
+    } else {
+      await test.step("Check the page title", () => expect(page).toHaveTitle("Flaw Patrol Shop", { timeout: 1000 }));
+    }
   });
 
   test("adds an item to the cart", async ({ page }) => {
