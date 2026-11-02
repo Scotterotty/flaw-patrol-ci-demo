@@ -11,6 +11,9 @@
   button { font: inherit; padding: 4px 12px; }
   .total { font-weight: 600; }
   .msg { color: #b4233a; min-height: 1.5em; }
+  .overlay { position: fixed; inset: 0; background: rgba(20, 20, 30, .55); display: flex; align-items: center; justify-content: center; }
+  .overlay div { background: #fff; border-top: 6px solid #b4233a; padding: 24px; max-width: 360px; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+  .crash { background: #fdecee; border: 1px solid #b4233a; color: #8a1426; padding: 12px; font: 13px ui-monospace, monospace; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -33,26 +36,45 @@
   const shopCart = module.exports;
   const CODES = { SAVE10: 10 };
   // The demo's known bug: codes only work in capitals. Open the page with ?fixed to fix it.
-  const fixed = new URLSearchParams(location.search).has("fixed");
+  const params = new URLSearchParams(location.search);
+  const fixed = params.has("fixed");
+  // ?bug=... turns on a bug the browser tests can trip over, so a failed test's
+  // screenshot and video show something really wrong (picked by e2e/shop.spec.js):
+  //   overlay  an error box covers the page        crash    the product list fails to load
+  //   price    prices come out 10% too high        double   the same item gets a second line
+  //   remove   Remove takes out the wrong item     message  the code warning is garbled
+  //   slow     the total takes 6 seconds to update
+  const bug = params.get("bug");
   const cart = shopCart.createCart();
   let percent = 0;
 
   function money(n) { return "$" + n.toFixed(2); }
+  const priceOf = (item) => (bug === "price" ? Math.round(item.price * 110) / 100 : item.price);
 
   function render() {
     const list = document.getElementById("cart");
     list.innerHTML = "";
     for (const item of cart.items) {
       const li = document.createElement("li");
-      li.innerHTML = `<span>${item.name} ×${item.quantity}</span><span>${money(item.price * item.quantity)} <button>Remove</button></span>`;
-      li.querySelector("button").onclick = () => { shopCart.removeItem(cart, item.name); render(); };
+      li.innerHTML = `<span>${item.name} ×${item.quantity}</span><span>${money(priceOf(item) * item.quantity)} <button>Remove</button></span>`;
+      li.querySelector("button").onclick = () => {
+        const gone = bug === "remove" ? cart.items[cart.items.length - 1] : item;
+        shopCart.removeItem(cart, gone.name);
+        render();
+      };
       list.appendChild(li);
     }
-    document.getElementById("total").textContent = money(shopCart.applyDiscount(shopCart.subtotal(cart), percent));
+    const total = money(shopCart.applyDiscount(bug === "price" ? cart.items.reduce((sum, i) => sum + priceOf(i) * i.quantity, 0) : shopCart.subtotal(cart), percent));
+    if (bug === "slow") setTimeout(() => { document.getElementById("total").textContent = total; }, 6000);
+    else document.getElementById("total").textContent = total;
   }
 
   for (const b of document.querySelectorAll("#products button")) {
-    b.onclick = () => { shopCart.addItem(cart, b.dataset.name, Number(b.dataset.price)); render(); };
+    b.onclick = () => {
+      if (bug === "double" && cart.items.some((i) => i.name === b.dataset.name)) cart.items.push({ name: b.dataset.name, price: Number(b.dataset.price), quantity: 1 });
+      else shopCart.addItem(cart, b.dataset.name, Number(b.dataset.price));
+      render();
+    };
   }
 
   document.getElementById("apply").onclick = () => {
@@ -60,11 +82,23 @@
     if (fixed) code = code.toUpperCase();
     const msg = document.getElementById("msg");
     if (CODES[code]) { percent = CODES[code]; msg.textContent = `${code} applied: ${percent}% off.`; }
-    else { percent = 0; msg.textContent = "That code doesn't exist."; }
+    else { percent = 0; msg.textContent = bug === "message" ? "error.discount.notFound (undefined)" : "That code doesn't exist."; }
     render();
   };
 
   render();
+
+  if (bug === "overlay") {
+    const box = document.createElement("div");
+    box.className = "overlay";
+    box.innerHTML = "<div><strong>Something went wrong</strong><p>We couldn't load your cart (error 503). Please try again in a few minutes.</p></div>";
+    document.body.appendChild(box);
+  }
+  if (bug === "crash") {
+    document.getElementById("products").outerHTML =
+      `<pre class="crash">TypeError: Cannot read properties of undefined (reading 'price')\n    at renderProducts (shop.js:41:27)\n    at loadCatalog (shop.js:12:5)</pre>`;
+    console.error("TypeError: Cannot read properties of undefined (reading 'price')");
+  }
 </script>
 </body>
 </html>

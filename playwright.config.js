@@ -16,7 +16,14 @@ module.exports = defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     trace: "retain-on-failure",
-    launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
+    // A click that can't happen (say, something covers the button) fails after 5 seconds
+    // instead of waiting out the whole test.
+    actionTimeout: 5000,
+    // Slows each click and keystroke a little so the videos are easy to follow.
+    launchOptions: {
+      slowMo: 150,
+      ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}),
+    },
   },
   projects: [{ name: "Chrome", use: { ...devices["Desktop Chrome"] } }],
 });

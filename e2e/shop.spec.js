@@ -1,34 +1,53 @@
 // Browser tests for web/shop.html. When one fails, Playwright saves a screenshot, a video
 // and a trace (a step-by-step replay) of it, for Flaw Patrol to show next to the result.
+const crypto = require("crypto");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const { test, expect } = require("@playwright/test");
 
-// On "everything passes" runs, and random runs with no bad change, the page's known bug
-// is fixed.
-const shop = pathToFileURL(path.join(__dirname, "..", "web", "shop.html")).href + (process.env.ALL_PASS ? "?fixed" : "");
+// On "everything passes" runs and random runs the page's known bug (codes only work in
+// capitals) is fixed; on push and "nothing fails" runs it isn't.
+const shop = pathToFileURL(path.join(__dirname, "..", "web", "shop.html")).href;
 
-// Tests a random run's "bad deploy" breaks (picked by ci/pick-outcome.js): title -> seed.
-// The seed picks how it breaks, so the screenshot and error look like a real failure.
+// Tests a random run breaks (picked by ci/pick-outcome.js): title -> seed. The seed picks
+// one of the bugs that test would really trip over (see ?bug= in web/shop.html), so the
+// screenshot and video show what went wrong. The same seed always picks the same bug.
 const broken = JSON.parse(process.env.SIM_FAIL_TESTS || "{}");
+const BUGS = {
+  "adds an item to the cart": ["overlay", "crash", "price", "slow"],
+  "adds the same item twice": ["overlay", "crash", "double"],
+  "removes an item": ["overlay", "crash", "price", "remove"],
+  "applies a discount code": ["overlay", "crash", "price", "capitals"],
+  "warns about a code that doesn't exist": ["overlay", "crash", "message"],
+  "updates the total after each item": ["overlay", "crash", "price", "slow"],
+};
+
+function hash(text) {
+  return crypto.createHash("sha256").update(String(text)).digest().readUInt32BE(0) / 4294967296;
+}
+
+function shopUrl(title, bug) {
+  if (!bug && broken[title]) {
+    const choices = BUGS[title] || ["overlay"];
+    bug = choices[Math.floor(hash(broken[title] + title) * choices.length)];
+  }
+  const params = new URLSearchParams();
+  if (process.env.ALL_PASS && bug !== "capitals") params.set("fixed", "");
+  if (bug && bug !== "capitals") params.set("bug", bug);
+  return params.size ? `${shop}?${params}` : shop;
+}
 
 async function addToCart(page, name) {
   await page.getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "Add to cart" }).click();
 }
 
 test.describe("Shop", () => {
-  test.beforeEach(async ({ page }) => {
-    await test.step("Open the shop", () => page.goto(shop));
-  });
-
-  test.afterEach(async ({ page }, testInfo) => {
-    const seed = broken[testInfo.title];
-    if (!seed || testInfo.status !== testInfo.expectedStatus) return;
-    if (Number(seed) < 0.5) {
-      await test.step("Check the cart badge", () => expect(page.getByTestId("cart-count")).toBeVisible({ timeout: 1000 }));
-    } else {
-      await test.step("Check the page title", () => expect(page).toHaveTitle("Flaw Patrol Shop", { timeout: 1000 }));
-    }
+  test.beforeEach(async ({ page }, testInfo) => {
+    // The flaky test: on random runs the total is now and then slow to update, so the
+    // first try fails and the retry passes (or, with SIM_FLAKY_HARD, fails too).
+    const flaky = testInfo.title === "updates the total after each item" && process.env.SIM_RANDOM &&
+      (process.env.SIM_FLAKY_HARD || (testInfo.retry === 0 && Math.random() < 0.15));
+    await test.step("Open the shop", () => page.goto(shopUrl(testInfo.title, flaky ? "slow" : null)));
   });
 
   test("adds an item to the cart", async ({ page }) => {
@@ -59,7 +78,8 @@ test.describe("Shop", () => {
     });
   });
 
-  // Fails on purpose: the page only takes codes in capitals (the demo's known bug).
+  // Fails on purpose on push and "nothing fails" runs: the page only takes codes in
+  // capitals (the demo's known bug).
   test("applies a discount code", async ({ page }) => {
     await test.step("Add 2 Blue mugs and a Tea sampler", async () => {
       await addToCart(page, "Blue mug");
@@ -81,14 +101,10 @@ test.describe("Shop", () => {
     await test.step("Check the warning shows", () => expect(page.getByRole("status")).toHaveText("That code doesn't exist."));
   });
 
-  // Flaky on hourly random runs: now and then the first try fails and the retry passes,
-// and once in a while (SIM_FLAKY_HARD, from ci/pick-outcome.js) the retry fails too.
-  test("updates the total after each item", async ({ page }, testInfo) => {
+  // Flaky on hourly random runs (see beforeEach).
+  test("updates the total after each item", async ({ page }) => {
     await test.step("Add a Tea sampler", () => addToCart(page, "Tea sampler"));
-    await test.step("Check the total is $20.00", async () => {
-      const flake = process.env.SIM_RANDOM && (process.env.SIM_FLAKY_HARD || (testInfo.retry === 0 && Math.random() < 0.15));
-      await expect(page.locator("#total")).toHaveText(flake ? "$20.0" : "$20.00", { timeout: 1000 });
-    });
+    await test.step("Check the total is $20.00", () => expect(page.locator("#total")).toHaveText("$20.00", { timeout: 1000 }));
     await test.step("Add a Blue mug", () => addToCart(page, "Blue mug"));
     await test.step("Check the total is $35.00", () => expect(page.locator("#total")).toHaveText("$35.00"));
   });

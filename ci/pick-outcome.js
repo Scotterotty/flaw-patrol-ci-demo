@@ -10,8 +10,9 @@
 //   - a "bad change" lands now and then (about 1 in 4 six-hour stretches): 1 or 2 tests
 //     start failing and keep failing with the same error for 2 to 5 runs, then it's "fixed"
 //   - Tests: about 4% of runs, a bad merge breaks 3 to 5 tests for just that run
-//   - Browser tests: about 15% of runs, a bad deploy breaks 1 or 2 tests for just that
-//     run, so the browser runs don't sit green for half a day between bad changes
+//   - Browser tests: about 25% of runs, a bad deploy breaks 1 or 2 random tests for just
+//     that run. Each broken browser test hits a real, visible bug on the shop page, so
+//     its screenshot and video show what went wrong
 //   - flaky tests fail now and then for no reason (see ci/jest-setup.js and e2e/shop.spec.js)
 //
 // NOW_MS (a time in milliseconds) can stand in for the clock, to try out the odds.
@@ -92,17 +93,21 @@ if (mode.startsWith("random")) {
     // Test name -> seed that fixes how it fails.
     if (Object.keys(failing).length) out.SIM_FAIL_TESTS = JSON.stringify(failing);
   } else {
-    // The shop's known bug (codes only work in capitals) comes back during a bad change.
-    if (bad) delete out.ALL_PASS;
+    // Each broken test gets a real bug on the shop page (an error box over the page, wrong
+    // prices, a slow total and so on; see e2e/shop.spec.js), so its screenshot and video
+    // show what went wrong. A bad change keeps the same 1 or 2 tests broken the same way
+    // for a few hours.
+    const names = browserTestNames();
+    const failing = {};
+    if (bad) for (const n of pickSome(names, 1 + Math.floor(hash(bad + " count") * 2), bad)) failing[n] = bad;
     // Now and then the flaky test fails on its retry too, so the run goes red.
-    if (Math.random() < 0.06) out.SIM_FLAKY_HARD = "1";
-    // A bad deploy breaks 1 or 2 tests for just this run (on both tries, like a real bug).
-    if (Math.random() < 0.15) {
+    if (Math.random() < 0.04) out.SIM_FLAKY_HARD = "1";
+    // About 1 run in 4, a bad deploy breaks 1 or 2 tests for just this run.
+    if (Math.random() < 0.25) {
       const seed = String(Math.random());
-      const failing = {};
-      for (const n of pickSome(browserTestNames(), 1 + Math.floor(Math.random() * 2), seed)) failing[n] = seed;
-      out.SIM_FAIL_TESTS = JSON.stringify(failing);
+      for (const n of pickSome(names, 1 + Math.floor(Math.random() * 2), seed)) failing[n] = seed;
     }
+    if (Object.keys(failing).length) out.SIM_FAIL_TESTS = JSON.stringify(failing);
   }
 } else if (mode === "everything passes") {
   out.ALL_PASS = "1";

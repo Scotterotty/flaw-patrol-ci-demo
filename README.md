@@ -84,7 +84,7 @@ Good to know:
 
 - On a push, 5 pass and 1 (**applies a discount code**) fails on purpose: the shop only takes codes in capitals.
 - For each failed test, Playwright saves a **screenshot**, a **video** and a **trace** (a step-by-step replay you can click through).
-- The hourly runs are random, and most are green (about 4 in 5). Now and then (about once a day) a "bad change" brings the discount-code bug back for 2 to 5 runs in a row. **updates the total after each item** is flaky: now and then its first try fails and the retry passes, and once in a while the retry fails too. Rarely, Install fails (npm registry times out).
+- The hourly runs are random, and most are green (about 3 in 5). About 1 run in 4, a "bad deploy" breaks 1 or 2 random tests, and now and then a "bad change" keeps a test or two broken for a few hours. Each broken test hits a real bug you can see in its screenshot and video: an error box covering the page, a product list that fails to load, wrong prices, a slow total, a duplicate cart line, Remove taking out the wrong item, a garbled warning, or the discount-code bug. **updates the total after each item** is flaky: now and then its total is slow to update, so the first try fails and the retry passes, and once in a while the retry fails too. Rarely, Install fails (npm registry times out).
 - Pick **everything passes** in **Run workflow** to see a green run.
 
 The results are saved as the artifact **playwright-results-N**. Inside are `results.xml` (the JUnit file Flaw Patrol reads today), `results.json`, and a `files` folder with the screenshots, videos and traces. Flaw Patrol shows pass and fail today; showing the screenshots, videos and replays next to each result is coming in a future build.
